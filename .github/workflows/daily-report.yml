@@ -2,9 +2,7 @@ name: 每日舆情报告
 
 on:
   schedule:
-    # 每天北京时间早上8点执行（UTC 0点）
     - cron: '0 8 * * *'
-  # 允许手动触发，方便测试
   workflow_dispatch:
 
 jobs:
@@ -12,15 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      # 检出代码（主要是为了后续可能需要）
       - name: Checkout code
         uses: actions/checkout@v4
       
-      # 调用 Dify 工作流 API
       - name: 调用 Dify 工作流
         id: dify
         run: |
-          RESPONSE=$(curl -X POST "${{ secrets.DIFY_BASE_URL }}/workflows/run" \
+          RESPONSE=$(curl -s -X POST "${{ secrets.DIFY_BASE_URL }}/workflows/run" \
             -H "Authorization: Bearer ${{ secrets.DIFY_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{
@@ -28,14 +24,20 @@ jobs:
               "response_mode": "blocking",
               "user": "daily-report-bot"
             }')
-          echo "response=$RESPONSE" >> $GITHUB_OUTPUT
           
-          # 提取报告内容（假设 LLM 输出在 data.outputs.text 或类似路径）
-          # 不同 Dify 版本路径可能不同，先保存完整响应用于调试
+          echo "完整响应: $RESPONSE"
+          
+          # 提取 report 字段（你的输出在 data.outputs.report）
+          REPORT=$(echo "$RESPONSE" | jq -r '.data.outputs.report // .data.outputs.text // "未找到报告内容"')
+          
+          # 保存到 GITHUB_OUTPUT
+          echo "report_content<<EOF" >> $GITHUB_OUTPUT
+          echo "$REPORT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # 同时保存完整响应用于调试
           echo "$RESPONSE" > response.json
-          echo "完整响应已保存"
       
-      # 发送邮件
       - name: 发送邮件报告
         uses: dawidd6/action-send-mail@v3
         with:
@@ -47,9 +49,7 @@ jobs:
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_USER }}
           body: |
-            报告已生成，请查看附件或登录 Dify 查看详情。
-            
-            API 调用响应：${{ steps.dify.outputs.response }}
+            ${{ steps.dify.outputs.report_content }}
             
             ---
             本邮件由自动定时任务发送
