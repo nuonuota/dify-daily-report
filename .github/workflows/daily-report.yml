@@ -10,44 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: 获取当前日期
-        id: date
-        run: echo "date=$(date '+%Y-%m-%d')" >> $GITHUB_OUTPUT
-      
       - name: 调用 Dify 工作流
-        id: dify
         run: |
-          RESPONSE=$(curl -s -X POST "${{ secrets.DIFY_BASE_URL }}/workflows/run" \
+          curl -X POST "${{ secrets.DIFY_BASE_URL }}/workflows/run" \
             -H "Authorization: Bearer ${{ secrets.DIFY_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{
               "inputs": {},
               "response_mode": "blocking",
               "user": "daily-report-bot"
-            }')
-          
-          REPORT=$(echo "$RESPONSE" | jq -r '.data.outputs.report // .data.outputs.text // "未找到报告内容"')
-          
-          echo "report_content<<EOF" >> $GITHUB_OUTPUT
-          echo "$REPORT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      
-      - name: 发送邮件报告
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.qq.com
-          server_port: 465
-          username: ${{ secrets.EMAIL_USER }}
-          password: ${{ secrets.EMAIL_PASS }}
-          subject: 36氪舆情日报 - ${{ steps.date.outputs.date }}
-          to: ${{ secrets.EMAIL_TO }}
-          from: ${{ secrets.EMAIL_USER }}
-          body: |
-            ${{ steps.dify.outputs.report_content }}
-            
-            ---
-            本邮件由自动定时任务发送
-          secure: true
+            }'
