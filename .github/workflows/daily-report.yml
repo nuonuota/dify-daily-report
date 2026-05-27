@@ -13,6 +13,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: 获取当前日期
+        id: date
+        run: echo "date=$(date '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+      
       - name: 调用 Dify 工作流
         id: dify
         run: |
@@ -25,18 +29,11 @@ jobs:
               "user": "daily-report-bot"
             }')
           
-          echo "完整响应: $RESPONSE"
-          
-          # 提取 report 字段（你的输出在 data.outputs.report）
           REPORT=$(echo "$RESPONSE" | jq -r '.data.outputs.report // .data.outputs.text // "未找到报告内容"')
           
-          # 保存到 GITHUB_OUTPUT
           echo "report_content<<EOF" >> $GITHUB_OUTPUT
           echo "$REPORT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-          
-          # 同时保存完整响应用于调试
-          echo "$RESPONSE" > response.json
       
       - name: 发送邮件报告
         uses: dawidd6/action-send-mail@v3
@@ -45,7 +42,7 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USER }}
           password: ${{ secrets.EMAIL_PASS }}
-          subject: 36氪舆情日报 - $(date '+%Y-%m-%d')
+          subject: 36氪舆情日报 - ${{ steps.date.outputs.date }}
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_USER }}
           body: |
